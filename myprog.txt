@@ -1,0 +1,20 @@
+      MOV R0, #.green
+      MOV R1, #.white
+      MOV R2, #1
+flash:
+      STR R0, .Pixel367
+      LDR R3, .Time
+timer1:
+      LDR R4, .Time
+      SUB R5, R4, R3
+      CMP R5, R2
+      BLT timer1
+      STR R1, .Pixel367
+      LDR R3, .Time
+timer2:
+      LDR R4, .Time
+      SUB R5, R4, R3
+      CMP R5, R2
+      BLT timer2
+      B flash
+      halt

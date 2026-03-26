@@ -1,0 +1,87 @@
+101
+delay:
+        PUSH {R1-R5, LR}     ; save registers we use
+
+        LDR R1, .Time        ; start time
+
+delay_loop:
+        LDR R2, .Time        ; current time
+        SUB R3, R2, R1       ; elapsed = current - start
+        CMP R3, R0
+        BLT delay_loop       ; keep waiting
+
+        POP {R1-R5, LR}
+        BX LR                ; return
+
+b
+drawpixel:
+        PUSH {R2, LR}
+
+        MOV R2, R1           ; store delay time
+
+        STR R0, .Pixel367    ; turn ON
+        MOV R0, R2
+        BL delay
+
+        MOV R0, #.white
+        STR R0, .Pixel367    ; turn OFF
+        MOV R0, R2
+        BL delay
+
+        POP {R2, LR}
+        BX LR
+c
+PUSH {LR}
+...
+POP {LR}
+10.2
+        MOV R4, #3          ; number of flashes
+
+main_loop:
+        MOV R5, R4          ; counter
+
+flash_loop:
+        MOV R0, #.green
+        MOV R1, #1
+        BL drawpixel
+
+        SUB R5, R5, #1
+        CMP R5, #0
+        BGT flash_loop
+
+        ; pause 2 seconds
+        MOV R0, #2
+        BL delay
+
+        B main_loop
+
+10.3flashpattern:
+        PUSH {R2-R5, LR}
+
+        MOV R4, R0          ; flash count
+        MOV R5, R1          ; pause time
+
+flash_loop_fp:
+        MOV R0, #.green
+        MOV R1, #1
+        BL drawpixel
+
+        SUB R4, R4, #1
+        CMP R4, #0
+        BGT flash_loop_fp
+
+        ; pause
+        MOV R0, R5
+        BL delay
+
+        POP {R2-R5, LR}
+        BX LR
+
+
+main:
+        MOV R0, #3      ; flashes
+        MOV R1, #2      ; pause time
+
+main_loop:
+        BL flashpattern
+        B main_loop

@@ -1,87 +1,564 @@
-101
-delay:
-        PUSH {R1-R5, LR}     ; save registers we use
-
-        LDR R1, .Time        ; start time
-
-delay_loop:
-        LDR R2, .Time        ; current time
-        SUB R3, R2, R1       ; elapsed = current - start
-        CMP R3, R0
-        BLT delay_loop       ; keep waiting
-
-        POP {R1-R5, LR}
-        BX LR                ; return
-
-b
-drawpixel:
-        PUSH {R2, LR}
-
-        MOV R2, R1           ; store delay time
-
-        STR R0, .Pixel367    ; turn ON
-        MOV R0, R2
-        BL delay
-
-        MOV R0, #.white
-        STR R0, .Pixel367    ; turn OFF
-        MOV R0, R2
-        BL delay
-
-        POP {R2, LR}
-        BX LR
-c
-PUSH {LR}
-...
-POP {LR}
-10.2
-        MOV R4, #3          ; number of flashes
-
-main_loop:
-        MOV R5, R4          ; counter
-
-flash_loop:
-        MOV R0, #.green
-        MOV R1, #1
-        BL drawpixel
-
-        SUB R5, R5, #1
-        CMP R5, #0
-        BGT flash_loop
-
-        ; pause 2 seconds
-        MOV R0, #2
-        BL delay
-
-        B main_loop
-
-10.3flashpattern:
-        PUSH {R2-R5, LR}
-
-        MOV R4, R0          ; flash count
-        MOV R5, R1          ; pause time
-
-flash_loop_fp:
-        MOV R0, #.green
-        MOV R1, #1
-        BL drawpixel
-
-        SUB R4, R4, #1
-        CMP R4, #0
-        BGT flash_loop_fp
-
-        ; pause
-        MOV R0, R5
-        BL delay
-
-        POP {R2-R5, LR}
-        BX LR
-
+        AREA Matchsticks, CODE, READWRITE
+        ENTRY
 
 main:
-        MOV R0, #3      ; flashes
-        MOV R1, #2      ; pause time
+restart_game:
+        BL get_name
+        BL get_match_count
+game_loop:
+        LDR R0, =match_count
+        LDR R1, [R0]
+        CMP R1, #0
+        BEQ game_over
 
-main_loop:
-        BL flashpattern
-        B main_loop
+        ; Player turn
+        BL print_matches
+        BL player_turn
+        BL check_game_end
+
+        ; Computer turn
+        BL print_matches
+        BL computer_turn
+        BL check_game_end
+
+        B game_loop
+
+game_over:
+        LDR R0, =msg_game_over
+        BL PrintString
+        BL play_again
+        B restart_game
+        HALT
+
+; =========================================
+; Stage 1 Functions
+; =========================================
+
+get_name:
+        PUSH {LR}
+        LDR R0, =prompt_name
+        BL PrintString
+        LDR R0, =player_name
+        MOV R1, #20
+        BL ReadString
+        POP {LR}
+        RET
+
+get_match_count:
+        PUSH {R1,LR}
+ask_count:
+        LDR R0, =prompt_count
+        BL PrintString
+        BL ReadInt
+        CMP R0, #10
+        BLT ask_count
+        CMP R0, #100
+        BGT ask_count
+        STR R0, =match_count
+        POP {R1,LR}
+        RET
+
+print_setup:
+        PUSH {R0,R1,LR}
+        LDR R0, =msg_player
+        BL PrintString
+        LDR R0, =player_name
+        BL PrintString
+        LDR R0, =msg_matches
+        BL PrintString
+        LDR R0, =match_count
+        LDR R0, [R0]
+        BL PrintInt
+        POP {R0,R1,LR}
+        RET
+
+; =========================================
+; Stage 2 Functions
+; =========================================
+
+print_matches:
+        PUSH {R0,R1,LR}
+        LDR R0, =msg_remaining
+        BL PrintString
+        LDR R0, =match_count
+        LDR R0, [R0]
+        BL PrintInt
+        POP {R0,R1,LR}
+        RET
+
+player_turn:
+        PUSH {R0,R1,R2,LR}
+ask_player:
+        LDR R0, =prompt_remove
+        BL PrintString
+        BL ReadInt
+        CMP R0, #1
+        BLT ask_player
+        CMP R0, #7
+        BGT ask_player
+        LDR R1, =match_count
+        LDR R2, [R1]
+        CMP R0, R2
+        BGT ask_player
+        SUB R2, R2, R0
+        STR R2, [R1]
+        POP {R0,R1,R2,LR}
+        RET
+
+; =========================================
+; Stage 3 Functions
+; =========================================
+
+computer_turn:
+        PUSH {R0,R1,R2,LR}
+        LDR R0, =msg_computer
+        BL PrintString
+
+random_pick:
+        BL Random
+        AND R0, R0, #7
+        ADD R0, R0, #1
+        LDR R1, =match_count
+        LDR R2, [R1]
+        CMP R0, R2
+        BGT random_pick
+        SUB R2, R2, R0
+        STR R2, [R1]
+        POP {R0,R1,R2,LR}
+        RET
+
+check_game_end:
+        PUSH {R0,R1,LR}
+        LDR R0, =match_count
+        LDR R1, [R0]
+        CMP R1, #1
+        BEQ player_wins
+        CMP R1, #0
+        BEQ game_draw
+        POP {R0,R1,LR}
+        RET
+
+player_wins:
+        LDR R0, =msg_win
+        BL PrintString
+        POP {R0,R1,LR}
+        RET
+
+game_draw:
+        LDR R0, =msg_draw
+        BL PrintString
+        POP {R0,R1,LR}
+        RET
+
+play_again:
+        PUSH {R0,LR}
+ask_replay:
+        LDR R0, =msg_play_again
+        BL PrintString
+        BL ReadChar
+        CMP R0, #'y'
+        BEQ restart_game
+        CMP R0, #'n'
+        BEQ exit_game
+        B ask_replay
+exit_game:
+        POP {R0,LR}
+        HALT
+
+; =========================================
+; Stage 4 Placeholder (Graphics)
+; =========================================
+
+draw_matches:
+        ; TODO: draw R0 = number of matches
+        RET
+
+; =========================================
+; DATA
+; =========================================
+prompt_name:        DCB "Please enter your name",0
+prompt_count:       DCB "How many matchsticks (10-100)?",0
+msg_player:         DCB "Player 1 is ",0
+msg_matches:        DCB "Matchsticks: ",0
+msg_remaining:      DCB "Remaining matchsticks: ",0
+prompt_remove:      DCB "How many do you want to remove (1-7)?",0
+msg_computer:       DCB "Computer Player's turn",0
+msg_game_over:      DCB "Game Over",0
+msg_win:            DCB "Player, YOU WIN!",0
+msg_draw:           DCB "It's a draw!",0
+msg_play_again:     DCB "Play again (y/n)?",0
+player_name:        SPACE 20
+match_count:        DCD 0
+
+        END
+
+
+
+Perfect! We can build the **entire Matchsticks game in ARMlite assembly** step by step, then combine it into a single **complete solution**. I’ll outline each stage and then provide a final **fully integrated program** at the end.
+
+We’ll handle **Stage 1 → Stage 4**, using functions, proper register handling, and a modular structure.
+
+---
+
+# **STAGE 1 — Game Setup**
+
+**Goal:**
+
+* Ask for player name
+* Ask for starting number of matchsticks (10–100)
+* Display setup info
+
+**Functions:**
+
+1. `get_name`
+2. `get_match_count`
+3. `print_setup`
+
+**Code (Stage 1 Template):**
+
+```asm
+        AREA Stage1, CODE, READWRITE
+        ENTRY
+
+main:
+        BL get_name
+        BL get_match_count
+        BL print_setup
+        HALT
+
+get_name:
+        PUSH {LR}
+        LDR R0, =prompt_name
+        BL PrintString
+        LDR R0, =player_name
+        MOV R1, #20
+        BL ReadString
+        POP {LR}
+        RET
+
+get_match_count:
+        PUSH {R1,LR}
+ask_count:
+        LDR R0, =prompt_count
+        BL PrintString
+        BL ReadInt
+        CMP R0, #10
+        BLT ask_count
+        CMP R0, #100
+        BGT ask_count
+        STR R0, =match_count
+        POP {R1,LR}
+        RET
+
+print_setup:
+        PUSH {R0,R1,LR}
+        LDR R0, =msg_player
+        BL PrintString
+        LDR R0, =player_name
+        BL PrintString
+        LDR R0, =msg_matches
+        BL PrintString
+        LDR R0, =match_count
+        LDR R0, [R0]
+        BL PrintInt
+        POP {R0,R1,LR}
+        RET
+
+; DATA
+prompt_name:     DCB "Please enter your name",0
+prompt_count:    DCB "How many matchsticks (10-100)?",0
+msg_player:      DCB "Player 1 is ",0
+msg_matches:     DCB "Matchsticks: ",0
+player_name:     SPACE 20
+match_count:     DCD 0
+
+        END
+```
+
+✅ Stage 1 sets up the **player name** and **matchstick count**.
+
+---
+
+# **STAGE 2 — Single Player Input**
+
+**Goal:**
+
+* Player removes 1–7 matchsticks
+* Validate input
+* Repeat until matchsticks are gone
+
+**Functions:**
+
+1. `player_turn` — gets valid input and subtracts matchsticks
+2. `print_matches` — shows remaining
+
+**Logic:**
+
+```text
+WHILE matchsticks > 0
+    print_matches
+    player_turn
+END
+print "Game Over"
+```
+
+---
+
+# **STAGE 3 — Human vs Computer**
+
+**Goal:**
+
+* Alternate turns between human and computer
+* Human goes first
+* Computer chooses random 1–7 matches, not exceeding remaining
+* Check win/draw after each turn
+* Ask to play again
+
+**Functions:**
+
+1. `computer_turn` — random number selection
+2. `check_game_end` — print win/lose/draw
+3. `play_again` — ask "y/n" and restart if yes
+
+---
+
+# **STAGE 4 — Graphics**
+
+**Goal:**
+
+* Draw each remaining matchstick on the screen
+* Update after each turn
+* Use your previous knowledge with `.PixelScreen`
+
+**Functions:**
+
+1. `draw_matches` — loop through matchsticks, draw pixels/lines
+2. `clear_screen` — optional helper to reset display
+
+---
+
+# **Complete Integrated ARMlite Assembly Program**
+
+Below is a **fully integrated version** combining all stages. I’ll include placeholders for graphics and computer random selection.
+
+```asm
+        AREA Matchsticks, CODE, READWRITE
+        ENTRY
+
+main:
+restart_game:
+        BL get_name
+        BL get_match_count
+game_loop:
+        LDR R0, =match_count
+        LDR R1, [R0]
+        CMP R1, #0
+        BEQ game_over
+
+        ; Player turn
+        BL print_matches
+        BL player_turn
+        BL check_game_end
+
+        ; Computer turn
+        BL print_matches
+        BL computer_turn
+        BL check_game_end
+
+        B game_loop
+
+game_over:
+        LDR R0, =msg_game_over
+        BL PrintString
+        BL play_again
+        B restart_game
+        HALT
+
+; =========================================
+; Stage 1 Functions
+; =========================================
+
+get_name:
+        PUSH {LR}
+        LDR R0, =prompt_name
+        BL PrintString
+        LDR R0, =player_name
+        MOV R1, #20
+        BL ReadString
+        POP {LR}
+        RET
+
+get_match_count:
+        PUSH {R1,LR}
+ask_count:
+        LDR R0, =prompt_count
+        BL PrintString
+        BL ReadInt
+        CMP R0, #10
+        BLT ask_count
+        CMP R0, #100
+        BGT ask_count
+        STR R0, =match_count
+        POP {R1,LR}
+        RET
+
+print_setup:
+        PUSH {R0,R1,LR}
+        LDR R0, =msg_player
+        BL PrintString
+        LDR R0, =player_name
+        BL PrintString
+        LDR R0, =msg_matches
+        BL PrintString
+        LDR R0, =match_count
+        LDR R0, [R0]
+        BL PrintInt
+        POP {R0,R1,LR}
+        RET
+
+; =========================================
+; Stage 2 Functions
+; =========================================
+
+print_matches:
+        PUSH {R0,R1,LR}
+        LDR R0, =msg_remaining
+        BL PrintString
+        LDR R0, =match_count
+        LDR R0, [R0]
+        BL PrintInt
+        POP {R0,R1,LR}
+        RET
+
+player_turn:
+        PUSH {R0,R1,R2,LR}
+ask_player:
+        LDR R0, =prompt_remove
+        BL PrintString
+        BL ReadInt
+        CMP R0, #1
+        BLT ask_player
+        CMP R0, #7
+        BGT ask_player
+        LDR R1, =match_count
+        LDR R2, [R1]
+        CMP R0, R2
+        BGT ask_player
+        SUB R2, R2, R0
+        STR R2, [R1]
+        POP {R0,R1,R2,LR}
+        RET
+
+; =========================================
+; Stage 3 Functions
+; =========================================
+
+computer_turn:
+        PUSH {R0,R1,R2,LR}
+        LDR R0, =msg_computer
+        BL PrintString
+
+random_pick:
+        BL Random
+        AND R0, R0, #7
+        ADD R0, R0, #1
+        LDR R1, =match_count
+        LDR R2, [R1]
+        CMP R0, R2
+        BGT random_pick
+        SUB R2, R2, R0
+        STR R2, [R1]
+        POP {R0,R1,R2,LR}
+        RET
+
+check_game_end:
+        PUSH {R0,R1,LR}
+        LDR R0, =match_count
+        LDR R1, [R0]
+        CMP R1, #1
+        BEQ player_wins
+        CMP R1, #0
+        BEQ game_draw
+        POP {R0,R1,LR}
+        RET
+
+player_wins:
+        LDR R0, =msg_win
+        BL PrintString
+        POP {R0,R1,LR}
+        RET
+
+game_draw:
+        LDR R0, =msg_draw
+        BL PrintString
+        POP {R0,R1,LR}
+        RET
+
+play_again:
+        PUSH {R0,LR}
+ask_replay:
+        LDR R0, =msg_play_again
+        BL PrintString
+        BL ReadChar
+        CMP R0, #'y'
+        BEQ restart_game
+        CMP R0, #'n'
+        BEQ exit_game
+        B ask_replay
+exit_game:
+        POP {R0,LR}
+        HALT
+
+; =========================================
+; Stage 4 Placeholder (Graphics)
+; =========================================
+
+draw_matches:
+        ; TODO: draw R0 = number of matches
+        RET
+
+; =========================================
+; DATA
+; =========================================
+prompt_name:        DCB "Please enter your name",0
+prompt_count:       DCB "How many matchsticks (10-100)?",0
+msg_player:         DCB "Player 1 is ",0
+msg_matches:        DCB "Matchsticks: ",0
+msg_remaining:      DCB "Remaining matchsticks: ",0
+prompt_remove:      DCB "How many do you want to remove (1-7)?",0
+msg_computer:       DCB "Computer Player's turn",0
+msg_game_over:      DCB "Game Over",0
+msg_win:            DCB "Player, YOU WIN!",0
+msg_draw:           DCB "It's a draw!",0
+msg_play_again:     DCB "Play again (y/n)?",0
+player_name:        SPACE 20
+match_count:        DCD 0
+
+        END
+```
+
+---
+
+### ✅ Features
+
+1. Modular **functions** with proper `PUSH/POP`
+2. Player and computer alternate turns
+3. Input validation for player moves
+4. Win/draw logic checked after each turn
+5. Play again functionality
+6. Placeholder for **graphics** (Stage 4)
+
+---
+
+### Next Steps
+
+1. Implement `draw_matches` to visually display matches (Stage 4).
+2. Optional: make computer **smarter** (strategic picking instead of random).
+3. Test thoroughly in ARMlite simulator.
+
+---
+
+If you want, I can **add the graphics function next**, showing **all remaining matches visually** like the LED pixels you did before.
+
+Do you want me to do that now?
+

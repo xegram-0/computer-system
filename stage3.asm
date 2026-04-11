@@ -1,74 +1,84 @@
-// ==================================================
-// MATCHSTICKS GAME
-// Stages 1, 2, 3 + Replay (Refactored & Clean)
-// ==================================================
-// Registers
-// R0 : remaining matchsticks
-// R1 : string address
-// R2 : number taken
-// R3 : temp
-// =====================
-// STAGE 1 : SETUP
-// =====================
-// Ask for player name
-      MOV R1, #msg_enter_name
+; Student: Hong Nhan Nguyen
+; ID: 102632476
+; Assignment 2: Matchsticks
+; Stage 3: Implement human versus computer
+;
+; Assigning registers
+; R0: remaining matchsticks
+; R1: message
+; R2: number of matchsticks to be removed
+; R3: temp
+;
+; Achieved:
+; Player and computer take turns to play: player goes first
+; Random generator is used
+; Update logics of the remaining matchsticks each turn
+; Game outcome conditions based on the number of matchsticks
+;      If = 1 then whose turn to be the victor
+;      If > 1 then continue
+;      If = 0 then draw
+; Messages after finishing a game
+; Play again feature
+;      If y then play
+;      If n then stop/halt
+;      If invalid then ask again
+;
+; Used resources: Lecture week 8, lab 8 and online book chapter 3
+;
+; Stage 1
+; Player name getter
+      MOV R1, #msg_name
       STR R1, .WriteString
-      MOV R1, #player_name
+      MOV R1, #p1_name
       STR R1, .ReadString
-// Ask for starting matchsticks (10–100)
-get_start_count:
-      MOV R1, #msg_enter_count
+; Matchsticks getter
+get_count:
+      MOV R1, #msg_count
       STR R1, .WriteString
       LDR R0, .InputNum
       CMP R0, #10
-      BLT get_start_count
+      BLT get_count     ; If < 10
       CMP R0, #100
-      BGT get_start_count
+      BGT get_count     ; If > 100
       STR R0, initial_count
-// =====================
-// GAME (with replay)
-// =====================
+; Stage 2 and 3
 restart_game:
       LDR R0, initial_count
 game_loop:
-// "Player <name>, there are <X> matchsticks remaining"
+; Player messages
       MOV R1, #msg_player_prefix
       STR R1, .WriteString
-      MOV R1, #player_name
+      MOV R1, #p1_name
       STR R1, .WriteString
       MOV R1, #msg_remaining_text
       STR R1, .WriteString
       STR R0, .WriteUnsignedNum
       MOV R1, #msg_newline
       STR R1, .WriteString
-// =====================
-// HUMAN TURN
-// =====================
-// "Player <name>, how many do you want to remove (1-7)?"
+; Player turn
       MOV R1, #msg_prompt_prefix
       STR R1, .WriteString
-      MOV R1, #player_name
+      MOV R1, #p1_name
       STR R1, .WriteString
       MOV R1, #msg_prompt_suffix
       STR R1, .WriteString
 human_input:
       LDR R2, .InputNum
       CMP R2, #1
-      BLT human_input
+      BLT human_input   ; If < 1
       CMP R2, #7
-      BGT human_input
+      BGT human_input   ; If > 7
       CMP R2, R0
-      BGT human_input
+      BGT human_input   ; If input > remaining
       SUB R0, R0, R2
       CMP R0, #1
-      BEQ human_wins
+      BEQ human_wins    ; Player winning condition
       CMP R0, #0
-      BEQ draw_game
-// =====================
-// COMPUTER TURN
-// =====================
+      BEQ draw_game     ; Draw condition
+; Computer messages
       MOV R1, #msg_computer_turn
       STR R1, .WriteString
+; Computer turn
 computer_pick:
       LDR R2, .Random
       AND R2, R2, #7
@@ -120,10 +130,8 @@ ask_replay:
       B ask_replay
 end_program:
       HALT
-// ==================================================
-// DATA SECTION
-// ==================================================
-// ----- Setup -----
+; Assigning variables
+; Stage 1 messages
 msg_enter_name: .ASCIZ "Please enter your name:\n"
 msg_enter_count: .ASCIZ "How many matchsticks (10-100)?\n"
 // ----- Status -----
